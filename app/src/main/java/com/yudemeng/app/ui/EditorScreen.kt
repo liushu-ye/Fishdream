@@ -51,6 +51,17 @@ fun EditorScreen(state: AppState, noteId: Long?) {
     var policy by remember(noteId) { mutableStateOf(initial?.policy ?: ExpiryPolicy.ONE_WEEK) }
     var selectedTags by remember(noteId) { mutableStateOf(state.editorTagIds.toSet()) }
 
+    // 编辑已有笔记时：是否刷新删除倒计时。默认「否」＝沿用原来的到期时刻。
+    var resetCountdown by remember(noteId) { mutableStateOf(false) }
+    val originalExpiresAt = initial?.expiresAt
+    val policyLabel = stringResource(policy.labelRes)
+    val countdownHint: String = when {
+        policy == ExpiryPolicy.FOREVER -> "保存后为永久保存，没有倒计时"
+        resetCountdown -> "保存后从现在起重新计时（$policyLabel）"
+        originalExpiresAt != null -> "保存后保持原来的到期时刻：${formatDateTime(originalExpiresAt)}"
+        else -> "原笔记没有倒计时可沿用，将从现在起按「$policyLabel」计算"
+    }
+
     var showNewTagDialog by remember { mutableStateOf(false) }
     var newTagName by remember { mutableStateOf("") }
 
@@ -59,7 +70,7 @@ fun EditorScreen(state: AppState, noteId: Long?) {
         if (content.isEmpty()) {
             if (noteId != null) state.trash(noteId) else state.openList()
         } else {
-            state.saveNote(noteId, content, policy, selectedTags.toList())
+            state.saveNote(noteId, content, policy, selectedTags.toList(), resetCountdown)
         }
     }
 
@@ -122,9 +133,33 @@ fun EditorScreen(state: AppState, noteId: Long?) {
             }
             if (policy == ExpiryPolicy.TODAY) {
                 Text(
-                    text = "提示：如果临近午夜创建，「今天」可能很快到期。编辑笔记会按当前时间重新计算到期时刻。",
+                    text = "提示：如果临近午夜创建，「今天」可能很快到期。",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.error,
+                )
+            }
+
+            if (noteId != null) {
+                Text(
+                    text = "保存时是否刷新删除倒计时？",
+                    style = MaterialTheme.typography.labelLarge,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(
+                        selected = resetCountdown,
+                        onClick = { resetCountdown = true },
+                        label = { Text("是，重新计时") },
+                    )
+                    FilterChip(
+                        selected = !resetCountdown,
+                        onClick = { resetCountdown = false },
+                        label = { Text("否，沿用原倒计时") },
+                    )
+                }
+                Text(
+                    text = countdownHint,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
 

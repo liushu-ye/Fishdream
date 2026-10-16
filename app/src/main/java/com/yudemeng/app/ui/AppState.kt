@@ -106,13 +106,23 @@ class AppState(
 
     // ------------------------------------------------------------ 笔记操作
 
-    fun saveNote(noteId: Long?, content: String, policy: ExpiryPolicy, tagIds: List<Long>) {
+    fun saveNote(
+        noteId: Long?,
+        content: String,
+        policy: ExpiryPolicy,
+        tagIds: List<Long>,
+        resetCountdown: Boolean = true,
+    ) {
         scope.launch {
             withContext(Dispatchers.IO) {
                 if (noteId == null) repo.createNote(content, policy, tagIds)
-                else repo.updateNote(noteId, content, policy, tagIds)
+                else repo.updateNote(noteId, content, policy, tagIds, resetCountdown)
             }
-            message = "已保存"
+            message = when {
+                noteId == null -> "已保存"
+                resetCountdown -> "已保存，倒计时已重新计算"
+                else -> "已保存，倒计时延续编辑前的"
+            }
             screen = Screen.NoteList
             refresh()
         }

@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="window_background">#FFFBFE</color>
-    <color name="ic_launcher_background">#1B6FB5</color>
+    <!-- 取自 App 图标源图的底色，保证自适应图标前景与背景无接缝 -->
+    <color name="ic_launcher_background">#FEFEFE</color>
 </resources>

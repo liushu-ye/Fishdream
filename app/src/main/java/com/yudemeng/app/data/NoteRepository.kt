@@ -57,10 +57,26 @@ class NoteRepository(
         return id
     }
 
-    /** 编辑笔记：按当前时间重算过期时刻（约定：编辑即续期）。 */
-    fun updateNote(id: Long, content: String, policy: ExpiryPolicy, tagIds: List<Long>) {
+    /**
+     * 编辑笔记。
+     *
+     * @param resetCountdown true  = 从现在起按当前策略重新计时
+     *                       false = 沿用编辑前的到期时刻，倒计时接着走；
+     *                               若原笔记是「永久」（本来就没有倒计时）则无从沿用，改为从现在起算
+     */
+    fun updateNote(
+        id: Long,
+        content: String,
+        policy: ExpiryPolicy,
+        tagIds: List<Long>,
+        resetCountdown: Boolean,
+    ) {
         val timestamp = now()
-        val expiresAt = Expiry.computeExpiresAt(policy, timestamp, zone)
+        val expiresAt: Long? = when {
+            policy == ExpiryPolicy.FOREVER -> null
+            resetCountdown -> Expiry.computeExpiresAt(policy, timestamp, zone)
+            else -> currentExpiresAt(id) ?: Expiry.computeExpiresAt(policy, timestamp, zone)
+        }
         val values = ContentValues().apply {
             put("content", content)
             put("updated_at", timestamp)
@@ -99,6 +115,19 @@ class NoteRepository(
             .query("notes", null, "id = ?", arrayOf(id.toString()), null, null, null)
             .use { cursor ->
                 if (cursor.moveToFirst()) return cursor.toNote().copy(tags = tagsOf(id))
+            }
+        return null
+    }
+
+    /** 读取笔记当前的到期时刻；null 表示永久保存或笔记不存在。 */
+    private fun currentExpiresAt(id: Long): Long? {
+        helper.readableDatabase
+            .query("notes", arrayOf("expires_at"), "id = ?", arrayOf(id.toString()), null, null, null)
+            .use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val index = cursor.getColumnIndexOrThrow("expires_at")
+                    return if (cursor.isNull(index)) null else cursor.getLong(index)
+                }
             }
         return null
     }
